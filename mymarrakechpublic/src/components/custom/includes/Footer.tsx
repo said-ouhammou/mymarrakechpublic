@@ -50,7 +50,7 @@ export default function Footer() {
           </div>
 
         {/* Services Column Group */}
-        <div className="md:w-1/3 grid grid-cols-2 gap-4 text-center md:text-left mb-8 md:mb-0">
+        <div className="w-full md:w-1/4 text-center mt-6 md:mt-1 md:text-left">
           <div>
             <h2 className="font-bold text-sm mb-4 tracking-wide">NOS SERVICES</h2>
             <ul className="space-y-2 text-xs"><li>

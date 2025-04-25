@@ -150,13 +150,13 @@ const submitBooking = async (bookingData: FormValues) => {
       };
 
       try {
-        const response = await submitBooking(bookingData);
-        if(response.status === 200) {
-          toast.success("Réservation soumise avec succès !");
+        await submitBooking(bookingData);
+        // const response = await submitBooking(bookingData);
+        // if(response.status === 201) {
           form.reset();
           toast.success("Réservation soumise avec succès !");
           navigate(`/${page?.slug}`);
-        }
+        // }
 
       } catch (error) {
         console.error("Booking failed");
