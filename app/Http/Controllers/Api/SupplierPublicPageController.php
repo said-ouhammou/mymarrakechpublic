@@ -119,6 +119,7 @@ class SupplierPublicPageController extends Controller
         $page = DB::connection('external')
         ->table('supplier_public_pages')
         ->whereRaw('JSON_SEARCH(multiple_qr_codes, "one", ?) IS NOT NULL', [$slug])
+        ->where('is_active', 1)
         ->first();
 
         if (!$page) {
@@ -204,6 +205,7 @@ class SupplierPublicPageController extends Controller
         $page = DB::connection('external')
             ->table('supplier_public_pages')
             ->whereRaw('JSON_SEARCH(multiple_qr_codes, "one", ?) IS NOT NULL', [$slug])
+            ->where('is_active', 1)
             ->first();
 
         if (!$page) {
