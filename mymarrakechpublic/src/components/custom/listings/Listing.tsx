@@ -71,8 +71,6 @@ export default function Listing({ activity, slug }: ListingProps) {
     prices
   } = activity;
 
-  console.log(image_path,title,id,'hi image')
-
   const truncateDescription = (text: string | undefined, maxLength = 50) => {
     if (!text) return "";
     return text.length > maxLength ? `${text.substring(0, maxLength)}...` : text;
