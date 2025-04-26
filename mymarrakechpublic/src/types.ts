@@ -22,7 +22,7 @@ export type ScheduleType = {
     category_id: number;
     title: string;
     slug: string;
-    image: string | null;
+    image_path: string | null;
     description: string;
     payment_methods: string; // JSON string
     localisation: string;

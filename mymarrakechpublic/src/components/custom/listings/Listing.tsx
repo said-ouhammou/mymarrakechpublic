@@ -65,11 +65,13 @@ export default function Listing({ activity, slug }: ListingProps) {
   const {
     id,
     title,
-    image,
+    image_path,
     description,
     category_title,
     prices
   } = activity;
+
+  console.log(image_path,title,id,'hi image')
 
   const truncateDescription = (text: string | undefined, maxLength = 50) => {
     if (!text) return "";
@@ -84,7 +86,7 @@ export default function Listing({ activity, slug }: ListingProps) {
     >
       <div className="relative h-48 overflow-hidden">
         <img 
-          src={image || "/placeholder.svg"} 
+          src={image_path || "/placeholder.svg"} 
           alt={title || "Activity"} 
           className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-300"
         />
