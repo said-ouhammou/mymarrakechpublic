@@ -11,7 +11,7 @@ export default function Listing({ activity, slug }: ListingProps) {
   const {
     id,
     title,
-    image_path,
+    image,
     description,
     category_title,
     prices
@@ -30,7 +30,7 @@ export default function Listing({ activity, slug }: ListingProps) {
     >
       <div className="relative h-48 overflow-hidden">
         <img 
-          src={image_path || "/placeholder.svg"} 
+          src={image || "/placeholder.svg"} 
           alt={title || "Activity"} 
           className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-300"
         />
@@ -50,11 +50,6 @@ export default function Listing({ activity, slug }: ListingProps) {
             </h3>
           </div>
           
-          {/* Rating placeholder - preserved for future use
-          <div className="bg-white px-2 py-1 rounded-md shadow-sm text-amber-600 font-medium">
-            {rating}
-          </div>
-          */}
         </div>
  
         {description && (

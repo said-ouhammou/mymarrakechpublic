@@ -118,24 +118,21 @@ const submitBooking = async (bookingData: FormValues) => {
     const response = await axiosInstance.post("/bookings", bookingData);
     return response.data;
   } catch (error: unknown) {
-    // Log and return an error response
     if (error instanceof Error) {
-      // If error has response data, log it
-      if ((error as any)?.response?.data) {
-        console.error("API Error during booking submission:", (error as any).response.data);
+      if ((error as unknown)) {
+        console.error("API Error during booking submission");
       } else {
-        console.error("API Error during booking submission:", error.message);
+        console.error("API Error during booking submission");
       }
     } else {
-      console.error("Unknown error occurred during booking submission:", error);
+      console.error("Unknown error occurred during booking submission");
     }
-    throw error; // Re-throwing so it can be handled where the function is called
+    throw error;
   }
 };
 
 // Form submission handler
     const onSubmit = async (data: FormValues) => {
-      // Enriching form data with activity and page details
       const bookingData = {
         ...data,
         activity_id: activity?.id?.toString(),
@@ -151,12 +148,9 @@ const submitBooking = async (bookingData: FormValues) => {
 
       try {
         await submitBooking(bookingData);
-        // const response = await submitBooking(bookingData);
-        // if(response.status === 201) {
           form.reset();
           toast.success("Réservation soumise avec succès !");
           navigate(`/${page?.slug}`);
-        // }
 
       } catch (error) {
         console.error("Booking failed");

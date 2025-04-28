@@ -23,23 +23,11 @@ export type ScheduleType = {
     title: string;
     slug: string;
     image_path: string | null;
+    image: string | null;
     description: string;
-    payment_methods: string; // JSON string
+    payment_methods: string;
     localisation: string;
-    rating: number | null;
-    person: string | null;
-    persons_number: number | null;
-    price: number;
-    discount: number;
-    discount_type: string;
-    display_order: number;
-    is_featured: number;
     category_title: string;
-    category_description: string | null;
-    price_person: string; // "adult", "enfant" or other types
-    price_amount: number;
-    price_commission: number;
-    commission_type_is_percentage: number;
     schedules: ScheduleType[];
     prices: PriceType[];
   };

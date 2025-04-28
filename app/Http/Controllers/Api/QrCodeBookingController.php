@@ -49,6 +49,8 @@ class QrCodeBookingController extends Controller
             'source' => $validated['source'] ?? null,
             'source_id' => $validated['source_id'] ?? null,
             'base_url' => $validated['base_url'] ?? null,
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
         
 
