@@ -203,7 +203,7 @@ const submitBooking = async (bookingData: FormValues) => {
         <div className="lg:col-span-2">
           <div className="relative aspect-[16/9] mb-6">
             <img
-              src={activity.image || "/placeholder.svg"}
+              src={activity.image_path || "/placeholder.svg"}
               alt={activity.title}
               className="object-cover rounded-lg w-full h-full"
             />

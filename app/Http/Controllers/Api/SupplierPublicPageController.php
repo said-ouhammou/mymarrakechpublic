@@ -112,9 +112,15 @@ class SupplierPublicPageController extends Controller
             abort(400, 'Invalid slug.');
         }
 
-        $page = DB::connection('external')->table('supplier_public_pages')
-            ->where('slug', $slug)
-            ->first();
+        // $page = DB::connection('external')->table('supplier_public_pages')
+        //     ->where('slug', $slug)
+        //     ->first();
+
+        $page = DB::connection('external')
+        ->table('supplier_public_pages')
+        ->whereRaw('JSON_SEARCH(multiple_qr_codes, "one", ?) IS NOT NULL', [$slug])
+        ->where('is_active', 1)
+        ->first();
 
         if (!$page) {
             abort(404, 'Page not found');
@@ -193,8 +199,14 @@ class SupplierPublicPageController extends Controller
     public function show($slug, $id)
     {
         // Get the page based on slug
-        $page = DB::connection('external')->table('supplier_public_pages')
-            ->where('slug', $slug)
+        // $page = DB::connection('external')->table('supplier_public_pages')
+        //     ->where('slug', $slug)
+        //     ->first();
+
+        $page = DB::connection('external')
+            ->table('supplier_public_pages')
+            ->whereRaw('JSON_SEARCH(multiple_qr_codes, "one", ?) IS NOT NULL', [$slug])
+            ->where('is_active', 1)
             ->first();
 
         if (!$page) {
