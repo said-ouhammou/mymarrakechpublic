@@ -144,7 +144,7 @@ const submitBooking = async (bookingData: FormValues) => {
         activity_title: activity?.title,
         category_title: activity?.category_title,
         total_price: totalPrice,
-        source: page?.slug,
+        source: slug || "",
         source_id: page?.id?.toString(),
         base_url: page?.base_url,
       };

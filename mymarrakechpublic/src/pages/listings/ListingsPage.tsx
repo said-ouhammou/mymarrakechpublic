@@ -148,7 +148,7 @@ export default function ListingsPage() {
           <Listing 
             key={activity.id || `activity-${activity.title}-${Math.random()}`} 
             activity={activity} 
-            slug={page?.slug || ""} 
+            slug={slug || ""} 
           />
         ))}
       </div>
