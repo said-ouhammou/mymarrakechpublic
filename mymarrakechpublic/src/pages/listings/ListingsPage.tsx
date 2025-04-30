@@ -4,12 +4,13 @@ import Listing from "../../components/custom/listings/Listing"
 import { FBLoading } from "@/components/custom/Loading"
 import NoListingFound from "./NoListingFound"
 import axiosInstance from "@/axios/axiosInstance"
-import { ActivityType, PageType } from "@/types"
+import { ActivityType } from "@/types"
 
 export default function ListingsPage() {
   const { slug } = useParams<{ slug: string }>()
   const [activities, setActivities] = useState<ActivityType[]>([])
-  const [page, setPage] = useState<PageType | null>(null)
+  // const [page, setPage] = useState<PageType | null>(null)
+
   const [isLoading, setIsLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -24,7 +25,7 @@ export default function ListingsPage() {
         
         if (response.data) {
           setActivities(response.data.activities || [])
-          setPage(response.data.page || null)
+          // setPage(response.data.page || null)
         } else {
           setError("Aucune donnée trouvée")
         }

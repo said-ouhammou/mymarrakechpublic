@@ -197,7 +197,7 @@ const submitBooking = async (bookingData: FormValues) => {
         <div className="lg:col-span-2">
           <div className="relative aspect-[16/9] mb-6">
             <img
-              src={activity.image_path || "/placeholder.svg"}
+              src={activity.image_path || '/mymarrakech-defaultimage.png'}
               alt={activity.title}
               className="object-cover rounded-lg w-full h-full"
             />
@@ -317,7 +317,7 @@ const submitBooking = async (bookingData: FormValues) => {
                         <FormLabel>Date de l'activité</FormLabel>
                         <FormControl>
                           <Input
-                            type="date"
+                            type="datetime-local"
                             {...field}
                           />
                         </FormControl>
