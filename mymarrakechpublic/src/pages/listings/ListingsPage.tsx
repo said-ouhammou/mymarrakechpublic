@@ -10,7 +10,6 @@ export default function ListingsPage() {
   const { slug } = useParams<{ slug: string }>()
   const [activities, setActivities] = useState<ActivityType[]>([])
   // const [page, setPage] = useState<PageType | null>(null)
-
   const [isLoading, setIsLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
 
