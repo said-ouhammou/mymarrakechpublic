@@ -118,7 +118,7 @@ export default function ListingsPage() {
                     onClick={() => handleFilterChange("Voir tout")}
                     className={`px-4 py-2 min-w-fit border border-gray-300 rounded-full transition-colors ${
                         activeFilter === "Voir tout"
-                            ? "bg-amber-50 text-amber-900 hover:bg-amber-100"
+                            ? "bg-[#f9f4f0] text-amber-900 hover:bg-amber-100"
                             : "bg-white hover:bg-gray-50"
                     }`}
                 >
