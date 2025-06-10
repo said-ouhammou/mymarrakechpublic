@@ -95,7 +95,13 @@ class SupplierPublicPageController extends Controller
                 'activities' => $activities,
             ]);
         } catch (\Exception $e) {
-            return response()->json(['error' => 'An error occurred while processing your request'], 500);
+            \Log::error('An error occurred while processing your request', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'error' => 'An error occurred while processing your request',
+            ], 500);
         }
     }
     
