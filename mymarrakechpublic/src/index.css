@@ -119,6 +119,14 @@
     }
 }
 
+* {
+    font-family: "Poppins", Helvetica, Arial, sans-serif;
+}
+
+html {
+    overflow-x: hidden;
+}
+
 /* For Webkit-based browsers (Chrome, Safari, Edge) */
 .hide-scrollbar::-webkit-scrollbar {
     display: none; /* Hides the scrollbar */

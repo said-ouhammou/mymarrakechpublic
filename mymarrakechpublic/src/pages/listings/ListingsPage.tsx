@@ -5,10 +5,14 @@ import { FBLoading } from "@/components/custom/Loading";
 import NoListingFound from "./NoListingFound";
 import axiosInstance from "@/axios/axiosInstance";
 import { ActivityType } from "@/types";
+import Banner from "@/components/banner/Banner";
 
 export default function ListingsPage() {
     const { slug } = useParams<{ slug: string }>();
     const [activities, setActivities] = useState<ActivityType[]>([]);
+    const [bannerActivities, setBannerActivities] = useState<ActivityType[]>(
+        []
+    );
     const [filteredActivities, setFilteredActivities] = useState<
         ActivityType[]
     >([]);
@@ -28,7 +32,10 @@ export default function ListingsPage() {
 
                 if (response.data) {
                     const activitiesData = response.data.activities || [];
+                    const bannerActivitiesData =
+                        response.data.bannerActivities || [];
                     setActivities(activitiesData);
+                    setBannerActivities(bannerActivitiesData);
                     setFilteredActivities(activitiesData);
 
                     // Extract unique categories from activities
@@ -82,7 +89,7 @@ export default function ListingsPage() {
         }
 
         return (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 px-4">
                 {filteredActivities.map((activity) => (
                     <Listing
                         key={
@@ -91,6 +98,7 @@ export default function ListingsPage() {
                         }
                         activity={activity}
                         slug={slug || ""}
+                        resourceType="qr"
                     />
                 ))}
             </div>
@@ -99,7 +107,7 @@ export default function ListingsPage() {
 
     return (
         <div className="max-w-7xl mx-auto px-4 py-8">
-            <section className="mb-12 max-w-5xl">
+            <section className="mb-12 max-w-5xl px-4">
                 <h1 className="text-2xl tracking-tight font-semibold text-gray-800 my-4">
                     Partenaires de My Marrakech
                 </h1>
@@ -112,48 +120,56 @@ export default function ListingsPage() {
                 </p>
             </section>
 
-            <div className="flex flex-nowrap overflow-auto gap-3 mb-10 hide-scrollbar">
-                {/* "Voir tout" button */}
-                <button
-                    onClick={() => handleFilterChange("Voir tout")}
-                    className={`px-4 py-2 min-w-fit border border-gray-300 rounded-full transition-colors ${
-                        activeFilter === "Voir tout"
-                            ? "bg-[#f9f4f0] text-amber-900 hover:bg-amber-100"
-                            : "bg-white hover:bg-gray-50"
-                    }`}
-                >
-                    Voir tout ({activities.length})
-                </button>
+            <Banner
+                activities={bannerActivities}
+                error={error}
+                isLoading={isLoading}
+            />
 
-                {/* Dynamic category buttons */}
-                {categories.map((category) => (
+            <div className="px-4">
+                <div className="flex flex-nowrap overflow-auto gap-3 mb-2 hide-scrollbar">
+                    {/* "Voir tout" button */}
                     <button
-                        key={category}
-                        onClick={() => handleFilterChange(category)}
+                        onClick={() => handleFilterChange("Voir tout")}
                         className={`px-4 py-2 min-w-fit border border-gray-300 rounded-full transition-colors ${
-                            activeFilter === category
-                                ? "bg-amber-50 text-amber-900 hover:bg-amber-100"
+                            activeFilter === "Voir tout"
+                                ? "bg-[#f9f4f0] text-amber-900 hover:bg-amber-100"
                                 : "bg-white hover:bg-gray-50"
                         }`}
                     >
-                        {category} (
-                        {
-                            activities.filter(
-                                (a) => a.category_title === category
-                            ).length
-                        }
-                        )
+                        Voir tout ({activities.length})
                     </button>
-                ))}
-            </div>
 
-            {/* Display current filter info */}
-            <div className="mb-4">
-                <p className="text-sm text-gray-600">
-                    {activeFilter === "Voir tout"
-                        ? `Affichage de ${filteredActivities.length} activités`
-                        : `Affichage de ${filteredActivities.length} activités dans "${activeFilter}"`}
-                </p>
+                    {/* Dynamic category buttons */}
+                    {categories.map((category) => (
+                        <button
+                            key={category}
+                            onClick={() => handleFilterChange(category)}
+                            className={`px-4 py-2 min-w-fit border border-gray-300 rounded-full transition-colors ${
+                                activeFilter === category
+                                    ? "bg-amber-50 text-amber-900 hover:bg-amber-100"
+                                    : "bg-white hover:bg-gray-50"
+                            }`}
+                        >
+                            {category} (
+                            {
+                                activities.filter(
+                                    (a) => a.category_title === category
+                                ).length
+                            }
+                            )
+                        </button>
+                    ))}
+                </div>
+
+                {/* Display current filter info */}
+                <div className="mb-4">
+                    <p className="text-sm text-gray-600">
+                        {activeFilter === "Voir tout"
+                            ? `Affichage de ${filteredActivities.length} activités`
+                            : `Affichage de ${filteredActivities.length} activités dans "${activeFilter}"`}
+                    </p>
+                </div>
             </div>
 
             {renderContent()}

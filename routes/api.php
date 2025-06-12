@@ -11,5 +11,5 @@ Route::get('/user', function (Request $request) {
 
 
 Route::get('/{slug}', [SupplierPublicPageController::class, 'index']);
-Route::get('/{slug}/{id}', [SupplierPublicPageController::class, 'show']);
+Route::get('/{slug}/{id}/{resourceType}', [SupplierPublicPageController::class, 'show']);
 Route::post('/bookings', [QrCodeBookingController::class, 'store']);
