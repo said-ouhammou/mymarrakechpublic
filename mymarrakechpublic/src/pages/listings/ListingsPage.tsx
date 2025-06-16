@@ -120,11 +120,13 @@ export default function ListingsPage() {
                 </p>
             </section>
 
-            <Banner
-                activities={bannerActivities}
-                error={error}
-                isLoading={isLoading}
-            />
+            {bannerActivities && bannerActivities.length > 0 && (
+                <Banner
+                    activities={bannerActivities}
+                    error={error}
+                    isLoading={isLoading}
+                />
+            )}
 
             <div className="px-4">
                 <div className="flex flex-nowrap overflow-auto gap-3 mb-2 hide-scrollbar">
