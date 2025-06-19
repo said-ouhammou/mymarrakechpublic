@@ -4,12 +4,16 @@ import Listing from "../../components/custom/listings/Listing";
 import { FBLoading } from "@/components/custom/Loading";
 import NoListingFound from "./NoListingFound";
 import axiosInstance from "@/axios/axiosInstance";
-import { ActivityType } from "@/types";
+import { ActivityType , BannerMetaData} from "@/types";
 import Banner from "@/components/banner/Banner";
 
 export default function ListingsPage() {
     const { slug } = useParams<{ slug: string }>();
     const [activities, setActivities] = useState<ActivityType[]>([]);
+    const [bannerMetaData, setBannerMetaData] = useState<BannerMetaData>({
+        title:'',
+        description:'',
+    });
     const [bannerActivities, setBannerActivities] = useState<ActivityType[]>(
         []
     );
@@ -37,6 +41,7 @@ export default function ListingsPage() {
                     setActivities(activitiesData);
                     setBannerActivities(bannerActivitiesData);
                     setFilteredActivities(activitiesData);
+                    setBannerMetaData(()=>response.data.bannerMetaData);
 
                     // Extract unique categories from activities
                     const uniqueCategories = Array.from(
@@ -122,6 +127,8 @@ export default function ListingsPage() {
 
             {bannerActivities && bannerActivities.length > 0 && (
                 <Banner
+                    title={bannerMetaData.title}
+                    description={bannerMetaData.description}
                     activities={bannerActivities}
                     error={error}
                     isLoading={isLoading}

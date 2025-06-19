@@ -58,4 +58,8 @@ export type ScheduleType = {
     activity: ActivityType;
   };
   
+  export type BannerMetaData = {
+    title:string;
+    description:string
+  }
   

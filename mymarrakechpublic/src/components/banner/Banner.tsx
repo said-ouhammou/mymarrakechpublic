@@ -6,12 +6,16 @@ import NoListingFound from "@/pages/listings/NoListingFound";
 import { ActivityType } from "@/types";
 
 interface BannerProps {
+    title:string;
+    description:string;
     activities: ActivityType[];
     isLoading?: boolean;
     error?: string | null;
 }
 
 export default function Banner({
+    title,
+    description,
     activities = [],
     isLoading = false,
     error = null,
@@ -29,7 +33,6 @@ export default function Banner({
         useState<boolean>(false);
     const [canScrollCardsRight, setCanScrollCardsRight] =
         useState<boolean>(true);
-
     // Initialize filtered activities and categories when activities prop changes
     useEffect(() => {
         if (activities.length > 0) {
@@ -219,6 +222,15 @@ export default function Banner({
     return (
         <div className="max-w-7xl mx-auto px-4 pb-8">
             <div className="">
+                <section className="mb-4 max-w-5xl">
+                    <h1 className="text-xl tracking-tight font-semibold text-gray-800 mt-4 mb-2">
+                        {title}
+                    </h1>
+                    <p className="text-gray-700 text-md tracking-tight">
+                        {description}
+                    </p>
+                </section>
+            
                 {/* Category Filter Buttons */}
                 <div className="flex flex-nowrap overflow-auto gap-3 mb-3 hide-scrollbar">
                     {/* "Voir tout" button */}
