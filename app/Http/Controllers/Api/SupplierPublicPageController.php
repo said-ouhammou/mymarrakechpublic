@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Validator;
 class SupplierPublicPageController extends Controller
 {
 
-    public function index($slug)
+    public function indexOLD($slug)
     {
         $slug = request()->route('slug');
 
@@ -146,8 +146,160 @@ class SupplierPublicPageController extends Controller
         }
     }
 
+    public function index($slug)
+    {
+        $validator = Validator::make(['slug' => $slug], [
+            'slug' => 'required|string|alpha_dash',
+        ]);
 
-    public function show($slug, $id, $resourceType)
+        if ($validator->fails()) {
+            abort(400, 'Invalid slug.');
+        }
+
+        try {
+            // First find the QR code record
+            $qrCode = DB::connection('external')
+                ->table('supplier_qr_codes')
+                ->where('slug', $slug)
+                ->first();
+
+            if (!$qrCode) {
+                abort(404, 'QR code not found');
+            }
+
+            // Then get the associated page
+            $page = DB::connection('external')
+                ->table('supplier_public_pages')
+                ->where('id', $qrCode->page_id)
+                ->where('is_active', 1)
+                ->first();
+
+            if (!$page) {
+                abort(404, 'Page not found or inactive');
+            }
+
+            $bannerId = 1; // example banner ID
+            
+            // 1. Existing activities
+            $activities = DB::connection('external')
+                ->table('supplier_page_activities as spa')
+                ->join('activities as a', 'spa.activity_id', '=', 'a.id')
+                ->join('categories as c', 'a.category_id', '=', 'c.id')
+                ->where('spa.page_id', $page->id)
+                ->where('spa.is_visible', 1)
+                ->select([
+                    'a.id',
+                    'a.supplier_id',
+                    'a.category_id',
+                    'a.title',
+                    'a.description',
+                    'a.payment_methods',
+                    'a.localisation',
+                    'a.image_path as image',
+                    'spa.image_path',
+                    'spa.rating',
+                    'spa.person',
+                    'spa.persons_number',
+                    'spa.price',
+                    'spa.discount',
+                    'spa.discount_type',
+                    'spa.display_order',
+                    'spa.is_featured',
+                    'c.title as category_title',
+                    'c.description as category_description',
+                ])
+                ->orderBy('spa.display_order')
+                ->get();
+
+            $activityIds = $activities->pluck('id');
+
+            // 2. Banner activities with detailed data (excluding already used activity IDs)
+            $bannerActivities = DB::connection('external')
+                ->table('banner_activities as ba')
+                ->join('activities as a', 'ba.activity_id', '=', 'a.id')
+                ->join('categories as c', 'a.category_id', '=', 'c.id')
+                ->where('ba.banner_id', $bannerId)
+                ->whereNotIn('a.id', $activityIds)
+                ->select([
+                    'a.id',
+                    'a.supplier_id',
+                    'a.category_id',
+                    'a.title',
+                    'a.description',
+                    'a.payment_methods',
+                    'a.localisation',
+                    'a.image_path as image',
+                    DB::raw('NULL as image_path'), // No spa data
+                    DB::raw('NULL as rating'),
+                    DB::raw('NULL as person'),
+                    DB::raw('NULL as persons_number'),
+                    DB::raw('NULL as price'),
+                    DB::raw('NULL as discount'),
+                    DB::raw('NULL as discount_type'),
+                    DB::raw('NULL as display_order'),
+                    DB::raw('NULL as is_featured'),
+                    'c.title as category_title',
+                    'c.description as category_description',
+                ])
+                ->get();
+
+            $bannerActivityIds = $bannerActivities->pluck('id');
+
+            // 3. Fetch schedules and prices for both sets
+            $allActivityIds = $activityIds->merge($bannerActivityIds)->unique();
+
+            $schedules = DB::connection('external')
+                ->table('activity_schedules')
+                ->whereIn('activity_id', $allActivityIds)
+                ->get()
+                ->groupBy('activity_id');
+
+            $prices = DB::connection('external')
+                ->table('activity_clients')
+                ->whereIn('activity_id', $allActivityIds)
+                ->select('activity_id', 'person', 'price', 'commission', 'commission_type_is_percentage')
+                ->get()
+                ->groupBy('activity_id');
+
+            // 4. Map schedules and prices
+            $activities = $activities->map(function ($activity) use ($schedules, $prices) {
+                $activity->schedules = $schedules[$activity->id] ?? [];
+                $activity->prices = $prices[$activity->id] ?? [];
+                return $activity;
+            });
+
+            $bannerActivities = $bannerActivities->map(function ($activity) use ($schedules, $prices) {
+                $activity->schedules = $schedules[$activity->id] ?? [];
+                $activity->prices = $prices[$activity->id] ?? [];
+                return $activity;
+            });
+
+            // Update QR code scan count
+            DB::connection('external')
+                ->table('supplier_qr_codes')
+                ->where('id', $qrCode->id)
+                ->increment('scan_count');
+
+            return response()->json([
+                'page' => $page,
+                'activities' => $activities,
+                'bannerActivities' => $bannerActivities,
+                'qrCode' => $qrCode, // Optional: include QR code info if needed
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('An error occurred while processing your request', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'error' => 'An error occurred while processing your request',
+                'details' => config('app.debug') ? $e->getMessage() : null
+            ], 500);
+        }
+    }
+
+    public function showOLD($slug, $id, $resourceType)
     {        
         $validator = Validator::make(['slug' => $slug, 'id' => $id, 'resourceType' => $resourceType], [
             'resourceType' => 'required|string|alpha_dash|max:3|in:qr,ban',
@@ -249,6 +401,147 @@ class SupplierPublicPageController extends Controller
         } catch (\Exception $e) {
             \Log::error('Error in activity show', ['message' => $e->getMessage()]);
             return response()->json(['error' => 'An error occurred while processing your request'], 500);
+        }
+    }
+
+    public function show($slug, $id, $resourceType)
+    {
+        $validator = Validator::make([
+            'slug' => $slug, 
+            'id' => $id, 
+            'resourceType' => $resourceType
+        ], [
+            'resourceType' => 'required|string|alpha_dash|max:3|in:qr,ban',
+            'slug' => 'required|string|alpha_dash|max:255',
+            'id' => 'required|integer|min:1',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['error' => 'Invalid input parameters'], 400);
+        }
+
+        try {
+            // First find the QR code record
+            $qrCode = DB::connection('external')
+                ->table('supplier_qr_codes')
+                ->where('slug', $slug)
+                ->first();
+
+            if (!$qrCode) {
+                return response()->json(['error' => 'QR code not found'], 404);
+            }
+
+            // Then get the associated page
+            $page = DB::connection('external')
+                ->table('supplier_public_pages')
+                ->where('id', $qrCode->page_id)
+                ->where('is_active', 1)
+                ->first();
+
+            if (!$page) {
+                return response()->json(['error' => 'Page not found or inactive'], 404);
+            }
+
+            $activity = null;
+
+            if ($resourceType === "qr") {
+                // Get activity from page activities
+                $activity = DB::connection('external')
+                    ->table('supplier_page_activities as spa')
+                    ->join('activities as a', 'spa.activity_id', '=', 'a.id')
+                    ->join('categories as c', 'a.category_id', '=', 'c.id')
+                    ->leftJoin('activity_clients as ac', 'a.id', '=', 'ac.activity_id')
+                    ->where('spa.page_id', $page->id)
+                    ->where('spa.activity_id', $id)
+                    ->where('spa.is_visible', 1)
+                    ->select([
+                        'a.id',
+                        'a.supplier_id',
+                        'a.category_id',
+                        'a.title',
+                        'a.description',
+                        'a.payment_methods',
+                        'a.localisation',
+                        'a.image_path as image',
+                        'spa.image_path',
+                        'c.title as category_title',
+                        'ac.price as price_amount',
+                    ])
+                    ->first();
+
+                // Track QR code view
+                DB::connection('external')
+                    ->table('supplier_qr_codes')
+                    ->where('id', $qrCode->id)
+                    ->increment('view_count');
+
+            } elseif ($resourceType === "ban") {
+                // Get activity from banner activities
+                $activity = DB::connection('external')
+                    ->table('banner_activities as ba')
+                    ->join('activities as a', 'ba.activity_id', '=', 'a.id')
+                    ->join('categories as c', 'a.category_id', '=', 'c.id')
+                    ->leftJoin('activity_clients as ac', 'a.id', '=', 'ac.activity_id')
+                    ->where('ba.banner_id', 1)
+                    ->where('ba.activity_id', $id)
+                    ->select([
+                        'a.id',
+                        'a.supplier_id',
+                        'a.category_id',
+                        'a.title',
+                        'a.description',
+                        'a.payment_methods',
+                        'a.localisation',
+                        'a.image_path as image',
+                        'a.image_path',
+                        'c.title as category_title',
+                        'ac.price as price_amount',
+                    ])
+                    ->first();
+            }
+
+            if (!$activity) {
+                return response()->json([
+                    'error' => $resourceType === 'qr' 
+                        ? 'Activity not found in page' 
+                        : 'Activity not found in banner'
+                ], 404);
+            }
+
+            // Common part: fetch schedules and prices
+            $schedules = DB::connection('external')
+                ->table('activity_schedules')
+                ->where('activity_id', $id)
+                ->get();
+
+            $prices = DB::connection('external')
+                ->table('activity_clients')
+                ->where('activity_id', $id)
+                ->get();
+
+            // Attach schedules and prices
+            $activity->schedules = $schedules;
+            $activity->prices = $prices;
+
+            return response()->json([
+                'page' => $page,
+                'activity' => $activity,
+                'qrCode' => $qrCode, // Optional: include QR code info
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Error in activity show', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'slug' => $slug,
+                'id' => $id,
+                'resourceType' => $resourceType
+            ]);
+
+            return response()->json([
+                'error' => 'An error occurred while processing your request',
+                'details' => config('app.debug') ? $e->getMessage() : null
+            ], 500);
         }
     }
 
