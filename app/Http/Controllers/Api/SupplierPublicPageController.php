@@ -501,7 +501,7 @@ class SupplierPublicPageController extends Controller
     /**
      * Get the real client IP address
      */
-    private function getClientIpAddress(Request $request)
+    private function getClientIpAddressOLD(Request $request)
     {
         $ipKeys = [
             'HTTP_CF_CONNECTING_IP',     // Cloudflare
@@ -530,32 +530,92 @@ class SupplierPublicPageController extends Controller
         return $request->ip();
     }
 
-    /**
-     * Get location information from IP address
-     * You can integrate with services like GeoIP2, IPinfo, or ipapi
+        /**
+     * Get the real client IP address
      */
-    private function getLocationFromIP($ipAddress)
+    private function getClientIpAddress(Request $request)
+    {
+        $ipKeys = [
+            'HTTP_CF_CONNECTING_IP',     // Cloudflare
+            'HTTP_CLIENT_IP',            // Proxy
+            'HTTP_X_FORWARDED_FOR',      // Load Balancer/Proxy
+            'HTTP_X_FORWARDED',          // Proxy
+            'HTTP_X_CLUSTER_CLIENT_IP',  // Cluster
+            'HTTP_FORWARDED_FOR',        // Proxy
+            'HTTP_FORWARDED',            // Proxy
+            'REMOTE_ADDR'                // Standard
+        ];
+
+        foreach ($ipKeys as $key) {
+            if (array_key_exists($key, $_SERVER) === true) {
+                $ip = $_SERVER[$key];
+                if (strpos($ip, ',') !== false) {
+                    $ip = explode(',', $ip)[0];
+                }
+                $ip = trim($ip);
+                if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+                    return $ip;
+                }
+            }
+        }
+
+        // If we're in development and got localhost IP, try to get the real public IP
+        $requestIp = $request->ip();
+        if (in_array($requestIp, ['127.0.0.1', '::1', 'localhost']) && app()->environment('local')) {
+            return $this->getRealPublicIP();
+        }
+
+        return $requestIp;
+    }
+
+    /**
+     * Get the real public IP address when in development
+     */
+    private function getRealPublicIP()
     {
         try {
-            // Example using ipapi.co (free tier available)
-            // You should replace this with your preferred GeoIP service
-            $response = file_get_contents("https://ipapi.co/{$ipAddress}/json/");
-            $data = json_decode($response, true);
-            
-            if ($data && !isset($data['error'])) {
-                return [
-                    'country' => $data['country_name'] ?? null,
-                    'city' => $data['city'] ?? null,
-                ];
+            // Try multiple services to get public IP
+            $services = [
+                'https://api.ipify.org',
+                'https://ipinfo.io/ip',
+                'https://icanhazip.com',
+                'https://checkip.amazonaws.com',
+            ];
+
+            foreach ($services as $service) {
+                try {
+                    $ch = curl_init();
+                    curl_setopt($ch, CURLOPT_URL, $service);
+                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                    curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+                    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
+                    curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (compatible; IP-Checker)');
+                    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+                    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+                    
+                    $ip = curl_exec($ch);
+                    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                    curl_close($ch);
+                    
+                    if ($ip !== false && $httpCode === 200) {
+                        $ip = trim($ip);
+                        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+                            return $ip;
+                        }
+                    }
+                } catch (\Exception $e) {
+                    // Continue to next service
+                    continue;
+                }
             }
         } catch (\Exception $e) {
-            \Log::error('Failed to get location from IP', [
-                'ip' => $ipAddress,
+            \Log::error('Failed to get real public IP', [
                 'error' => $e->getMessage()
             ]);
         }
 
-        return ['country' => null, 'city' => null];
+        // Fallback to localhost if all services fail
+        return '127.0.0.1';
     }
 
     /**
@@ -607,5 +667,188 @@ class SupplierPublicPageController extends Controller
     {
         $this->trackVisitor($request, $slug, null, 'page_view');
         return response()->json(['status' => 'tracked']);
+    }
+
+
+    /**
+     * Get location information from IP address
+     * You can integrate with services like GeoIP2, IPinfo, or ipapi
+     */
+    private function getLocationFromIPOLD($ipAddress)
+    {
+        try {
+            // Example using ipapi.co (free tier available)
+            // You should replace this with your preferred GeoIP service
+            $response = file_get_contents("https://ipapi.co/{$ipAddress}/json/");
+            $data = json_decode($response, true);
+            
+            if ($data && !isset($data['error'])) {
+                return [
+                    'country' => $data['country_name'] ?? null,
+                    'city' => $data['city'] ?? null,
+                ];
+            }
+        } catch (\Exception $e) {
+            \Log::error('Failed to get location from IP', [
+                'ip' => $ipAddress,
+                'error' => $e->getMessage()
+            ]);
+        }
+
+        return ['country' => null, 'city' => null];
+    }
+
+    // ✅ GET LOCATION
+    private function getLocationFromIP($ipAddress)
+    {
+        try {
+            // Skip location lookup for localhost/private IPs
+            if (in_array($ipAddress, ['127.0.0.1', '::1', 'localhost']) || 
+                !filter_var($ipAddress, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+                return ['country' => 'Local', 'city' => 'Development'];
+            }
+
+            // Try multiple services in order of preference
+            $services = [
+                [
+                    'url' => "http://ip-api.com/json/{$ipAddress}?fields=status,country,city",
+                    'parser' => 'parseIpApi'
+                ],
+                [
+                    'url' => "https://ipapi.co/{$ipAddress}/json/",
+                    'parser' => 'parseIpApiCo'
+                ],
+                [
+                    'url' => "http://ipinfo.io/{$ipAddress}/json",
+                    'parser' => 'parseIpInfo'
+                ],
+                [
+                    'url' => "https://api.ipgeolocation.io/ipgeo?apiKey=free&ip={$ipAddress}",
+                    'parser' => 'parseIpGeolocation'
+                ]
+            ];
+
+            foreach ($services as $service) {
+                try {
+                    $locationData = $this->fetchLocationData($service['url'], $service['parser']);
+                    if ($locationData && $locationData['country']) {
+                        \Log::info('Location data fetched successfully', [
+                            'ip' => $ipAddress,
+                            'service' => $service['url'],
+                            'country' => $locationData['country'],
+                            'city' => $locationData['city']
+                        ]);
+                        return $locationData;
+                    }
+                } catch (\Exception $e) {
+                    \Log::warning('Location service failed', [
+                        'service' => $service['url'],
+                        'error' => $e->getMessage()
+                    ]);
+                    continue;
+                }
+            }
+
+            \Log::warning('All location services failed', ['ip' => $ipAddress]);
+            return ['country' => null, 'city' => null];
+
+        } catch (\Exception $e) {
+            \Log::error('Failed to get location from IP', [
+                'ip' => $ipAddress,
+                'error' => $e->getMessage()
+            ]);
+            return ['country' => null, 'city' => null];
+        }
+    }
+    private function fetchLocationData($url, $parser)
+    {
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
+        curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (compatible; Location-Checker)');
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Accept: application/json',
+            'Content-Type: application/json'
+        ]);
+        
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
+        curl_close($ch);
+        
+        if ($response === false || $httpCode !== 200) {
+            throw new \Exception("HTTP request failed: HTTP {$httpCode}, cURL error: {$error}");
+        }
+        
+        $data = json_decode($response, true);
+        if (!$data) {
+            throw new \Exception("Invalid JSON response");
+        }
+        
+        return $this->$parser($data);
+    }
+
+    /**
+     * Parse ip-api.com response
+     */
+    private function parseIpApi($data)
+    {
+        if (!isset($data['status']) || $data['status'] !== 'success') {
+            throw new \Exception('IP-API request failed: ' . ($data['message'] ?? 'Unknown error'));
+        }
+        
+        return [
+            'country' => $data['country'] ?? null,
+            'city' => $data['city'] ?? null,
+        ];
+    }
+
+    /**
+     * Parse ipapi.co response
+     */
+    private function parseIpApiCo($data)
+    {
+        if (isset($data['error'])) {
+            throw new \Exception('IPApi.co error: ' . $data['reason']);
+        }
+        
+        return [
+            'country' => $data['country_name'] ?? null,
+            'city' => $data['city'] ?? null,
+        ];
+    }
+
+    /**
+     * Parse ipinfo.io response
+     */
+    private function parseIpInfo($data)
+    {
+        if (isset($data['bogon'])) {
+            throw new \Exception('Private/bogon IP detected');
+        }
+        
+        return [
+            'country' => $data['country'] ?? null,
+            'city' => $data['city'] ?? null,
+        ];
+    }
+
+    /**
+     * Parse ipgeolocation.io response
+     */
+    private function parseIpGeolocation($data)
+    {
+        if (isset($data['message'])) {
+            throw new \Exception('IPGeolocation error: ' . $data['message']);
+        }
+        
+        return [
+            'country' => $data['country_name'] ?? null,
+            'city' => $data['city'] ?? null,
+        ];
     }
 }
