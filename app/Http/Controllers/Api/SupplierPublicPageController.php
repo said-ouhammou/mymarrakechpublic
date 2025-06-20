@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Validator;
 
 class SupplierPublicPageController extends Controller
 {
-    public function index($slug)
+    public function index($slug, Request $request)
     {
         $validator = Validator::make(['slug' => $slug], [
             'slug' => 'required|string|alpha_dash',
@@ -41,6 +41,9 @@ class SupplierPublicPageController extends Controller
             if (!$page) {
                 abort(404, 'Page not found or inactive');
             }
+
+            // Track visitor information
+            $this->trackVisitor($request, $page->slug, $qrCode->slug, 'qr_scan');
             
             // 1. Existing activities
             $activities = DB::connection('external')
@@ -148,7 +151,6 @@ class SupplierPublicPageController extends Controller
                 ->select('b.title', 'b.description')
                 ->where('b.is_active', 1)
                 ->first();
-
 
             return response()->json([
                 'page' => $page,
@@ -275,7 +277,7 @@ class SupplierPublicPageController extends Controller
         }
     }
 
-    public function show($slug, $id, $resourceType)
+    public function show($slug, $id, $resourceType, Request $request)
     {
         $validator = Validator::make([
             'slug' => $slug, 
@@ -340,6 +342,11 @@ class SupplierPublicPageController extends Controller
                     ])
                     ->first();
 
+                // Track activity click for QR code
+                if ($activity) {
+                    $this->trackVisitor($request, $page->slug, $qrCode->slug, 'activity_click', $activity->id, $activity->title);
+                }
+
                 // Track QR code view
                 DB::connection('external')
                     ->table('supplier_qr_codes')
@@ -369,6 +376,11 @@ class SupplierPublicPageController extends Controller
                         'ac.price as price_amount',
                     ])
                     ->first();
+
+                // Track activity click for banner
+                if ($activity) {
+                    $this->trackVisitor($request, $page->slug, $qrCode->slug, 'activity_click', $activity->id, $activity->title);
+                }
             }
 
             if (!$activity) {
@@ -416,4 +428,184 @@ class SupplierPublicPageController extends Controller
         }
     }
 
+    /**
+     * Track visitor information
+     */
+    private function trackVisitor(Request $request, $pageSlug, $qrCodeSlug = null, $actionType = 'page_view', $activityId = null, $activityTitle = null)
+    {
+        try {
+            // Get client IP address
+            $ipAddress = $this->getClientIpAddress($request);
+            
+            // Get location information (you might want to use a service like GeoIP)
+            $locationData = $this->getLocationFromIP($ipAddress);
+            
+            // Get device and browser information
+            $userAgent = $request->header('User-Agent');
+            $deviceInfo = $this->parseUserAgent($userAgent);
+
+            // Get page and QR code IDs for reference
+            $pageId = null;
+            $qrCodeId = null;
+
+            // Get page ID
+            $page = DB::connection('external')
+                ->table('supplier_public_pages')
+                ->where('slug', $pageSlug)
+                ->first();
+            if ($page) {
+                $pageId = $page->id;
+            }
+
+            // Get QR code ID if provided
+            if ($qrCodeSlug) {
+                $qrCode = DB::connection('external')
+                    ->table('supplier_qr_codes')
+                    ->where('slug', $qrCodeSlug)
+                    ->first();
+                if ($qrCode) {
+                    $qrCodeId = $qrCode->id;
+                }
+            }
+
+            // Insert tracking data
+            DB::connection('external')
+                ->table('visitor_tracking')
+                ->insert([
+                    'supplier_page_id' => $pageId,
+                    'supplier_page_slug' => $pageSlug,
+                    'qr_code_id' => $qrCodeId,
+                    'qr_code_slug' => $qrCodeSlug,
+                    'ip_address' => $ipAddress,
+                    'country' => $locationData['country'] ?? null,
+                    'city' => $locationData['city'] ?? null,
+                    'device_type' => $deviceInfo['device_type'] ?? null,
+                    'browser' => $deviceInfo['browser'] ?? null,
+                    'action_type' => $actionType,
+                    'activity_id' => $activityId,
+                    'activity_title' => $activityTitle,
+                    'created_at' => now(),
+                ]);
+
+        } catch (\Exception $e) {
+            // Log the error but don't break the main functionality
+            \Log::error('Failed to track visitor', [
+                'error' => $e->getMessage(),
+                'page_slug' => $pageSlug,
+                'qr_code_slug' => $qrCodeSlug,
+                'action_type' => $actionType
+            ]);
+        }
+    }
+
+    /**
+     * Get the real client IP address
+     */
+    private function getClientIpAddress(Request $request)
+    {
+        $ipKeys = [
+            'HTTP_CF_CONNECTING_IP',     // Cloudflare
+            'HTTP_CLIENT_IP',            // Proxy
+            'HTTP_X_FORWARDED_FOR',      // Load Balancer/Proxy
+            'HTTP_X_FORWARDED',          // Proxy
+            'HTTP_X_CLUSTER_CLIENT_IP',  // Cluster
+            'HTTP_FORWARDED_FOR',        // Proxy
+            'HTTP_FORWARDED',            // Proxy
+            'REMOTE_ADDR'                // Standard
+        ];
+
+        foreach ($ipKeys as $key) {
+            if (array_key_exists($key, $_SERVER) === true) {
+                $ip = $_SERVER[$key];
+                if (strpos($ip, ',') !== false) {
+                    $ip = explode(',', $ip)[0];
+                }
+                $ip = trim($ip);
+                if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+                    return $ip;
+                }
+            }
+        }
+
+        return $request->ip();
+    }
+
+    /**
+     * Get location information from IP address
+     * You can integrate with services like GeoIP2, IPinfo, or ipapi
+     */
+    private function getLocationFromIP($ipAddress)
+    {
+        try {
+            // Example using ipapi.co (free tier available)
+            // You should replace this with your preferred GeoIP service
+            $response = file_get_contents("https://ipapi.co/{$ipAddress}/json/");
+            $data = json_decode($response, true);
+            
+            if ($data && !isset($data['error'])) {
+                return [
+                    'country' => $data['country_name'] ?? null,
+                    'city' => $data['city'] ?? null,
+                ];
+            }
+        } catch (\Exception $e) {
+            \Log::error('Failed to get location from IP', [
+                'ip' => $ipAddress,
+                'error' => $e->getMessage()
+            ]);
+        }
+
+        return ['country' => null, 'city' => null];
+    }
+
+    /**
+     * Parse user agent to extract device and browser information
+     */
+    private function parseUserAgent($userAgent)
+    {
+        $deviceType = 'Desktop';
+        $browser = 'Unknown';
+
+        if (!$userAgent) {
+            return ['device_type' => $deviceType, 'browser' => $browser];
+        }
+
+        // Detect device type
+        if (preg_match('/Mobile|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i', $userAgent)) {
+            if (preg_match('/iPad/i', $userAgent)) {
+                $deviceType = 'Tablet';
+            } else {
+                $deviceType = 'Mobile';
+            }
+        }
+
+        // Detect browser
+        if (preg_match('/Chrome/i', $userAgent) && !preg_match('/Edge/i', $userAgent)) {
+            $browser = 'Chrome';
+        } elseif (preg_match('/Firefox/i', $userAgent)) {
+            $browser = 'Firefox';
+        } elseif (preg_match('/Safari/i', $userAgent) && !preg_match('/Chrome/i', $userAgent)) {
+            $browser = 'Safari';
+        } elseif (preg_match('/Edge/i', $userAgent)) {
+            $browser = 'Edge';
+        } elseif (preg_match('/Opera/i', $userAgent)) {
+            $browser = 'Opera';
+        } elseif (preg_match('/MSIE|Trident/i', $userAgent)) {
+            $browser = 'Internet Explorer';
+        }
+
+        return [
+            'device_type' => $deviceType,
+            'browser' => $browser
+        ];
+    }
+
+    /**
+     * Track page view specifically
+     */
+    public function trackPageView(Request $request, $slug)
+    {
+        $this->trackVisitor($request, $slug, null, 'page_view');
+        return response()->json(['status' => 'tracked']);
+    }
 }
