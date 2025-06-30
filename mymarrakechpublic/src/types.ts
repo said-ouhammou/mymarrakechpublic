@@ -62,4 +62,9 @@ export type ScheduleType = {
     title:string;
     description:string
   }
+
+  export type SupplierType = {
+    id: number;
+    company: string;
+  };
   

@@ -4,12 +4,13 @@ import Listing from "../../components/custom/listings/Listing";
 import { FBLoading } from "@/components/custom/Loading";
 import NoListingFound from "./NoListingFound";
 import axiosInstance from "@/axios/axiosInstance";
-import { ActivityType , BannerMetaData} from "@/types";
+import { ActivityType , SupplierType, BannerMetaData} from "@/types";
 import Banner from "@/components/banner/Banner";
 
 export default function ListingsPage() {
     const { slug } = useParams<{ slug: string }>();
     const [activities, setActivities] = useState<ActivityType[]>([]);
+    const [supplier, setSupplier] = useState<SupplierType | null>(null);
     const [bannerMetaData, setBannerMetaData] = useState<BannerMetaData>({
         title:'',
         description:'',
@@ -39,6 +40,7 @@ export default function ListingsPage() {
                     const bannerActivitiesData =
                         response.data.bannerActivities || [];
                     setActivities(activitiesData);
+                    setSupplier(response.data.supplier || null);
                     setBannerActivities(bannerActivitiesData);
                     setFilteredActivities(activitiesData);
                     setBannerMetaData(()=>response.data.bannerMetaData);
@@ -113,9 +115,11 @@ export default function ListingsPage() {
     return (
         <div className="max-w-7xl mx-auto px-4 py-8">
             <section className="mb-12 max-w-5xl px-4">
-                <h1 className="text-2xl tracking-tight font-semibold text-gray-800 my-4">
-                    Partenaires de My Marrakech
+                {supplier && (
+                    <h1 className="text-2xl tracking-tight font-semibold text-gray-800 my-4">
+                    Partenaire de {supplier.company}
                 </h1>
+                )}
                 <p className="text-gray-700 text-md tracking-tight">
                     Ce partenaire collabore avec l'agence My Marrakech.
                     Ensemble, nous vous proposons des expériences authentiques.

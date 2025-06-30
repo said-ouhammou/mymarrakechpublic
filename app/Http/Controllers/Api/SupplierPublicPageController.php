@@ -45,6 +45,15 @@ class SupplierPublicPageController extends Controller
                 abort(404, 'Page not found or inactive');
             }
 
+            $supplier = DB::connection('external')
+            ->table('suppliers')
+            ->where('id', $page->supplier_id)
+            ->select([
+                'id',
+                'company',
+            ])
+            ->first();
+
             // ✅ SMART QR SCAN TRACKING - Only count unique scans per visitor session
             $this->trackUniqueQRScan($qrCode->id, $request);
             
@@ -154,6 +163,7 @@ class SupplierPublicPageController extends Controller
 
             return response()->json([
                 'page' => $page,
+                'supplier' => $supplier,
                 'activities' => $activities,
                 'bannerActivities' => $bannerActivities,
                 'bannerMetaData' => $bannerMetaData,
