@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Info, MapPin } from "lucide-react";
+import { ArrowLeft, Info, MapPin, Loader2 } from "lucide-react";
 import {
     Form,
     FormControl,
@@ -70,6 +70,7 @@ export default function BookingPage() {
     const [activity, setActivity] = useState<ActivityType>();
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Initialize form with default values
     const form = useForm<FormValues>({
@@ -159,6 +160,7 @@ export default function BookingPage() {
 
     // Form submission handler
     const onSubmit = async (data: FormValues) => {
+        setIsSubmitting(true);
         const bookingData = {
             ...data,
             activity_id: activity?.id?.toString(),
@@ -179,6 +181,8 @@ export default function BookingPage() {
             navigate(`/${page?.slug}`);
         } catch (error) {
             console.error("Booking failed");
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -538,8 +542,16 @@ export default function BookingPage() {
                                     <Button
                                         type="submit"
                                         className="w-full bg-[#0a8a8a] hover:bg-[#0a8a8a]/90 cursor-pointer"
+                                        disabled={isSubmitting}
                                     >
-                                        Réserver maintenant
+                                        {isSubmitting ? (
+                                            <>
+                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                Traitement...
+                                            </>
+                                        ) : (
+                                            "Réserver maintenant"
+                                        )}
                                     </Button>
 
                                     <div className="text-xs text-center text-gray-500 flex items-center justify-center gap-1">

@@ -8,7 +8,7 @@ import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
-import { Info } from "lucide-react"
+import { Info,Loader2  } from "lucide-react"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form"
 
 // Define the form schema with Zod
@@ -48,6 +48,7 @@ type FormValues = z.infer<typeof formSchema>
 
 export default function BookingForm() {
   const [totalPrice, setTotalPrice] = useState(70)
+  const [isLoading, setIsLoading] = useState(false)
 
   // Initialize the form
   const form = useForm<FormValues>({
@@ -85,16 +86,26 @@ export default function BookingForm() {
   }
 
   // Handle form submission
-  const onSubmit = (data: FormValues) => {
-    console.log("Form submitted:", data)
-    // Here you would typically send the data to your backend
-    alert(
-      `Réservation confirmée pour ${data.firstName} ${data.lastName}\n` +
-      `${data.adults} adulte(s) et ${data.children} enfant(s)\n` +
-      `Le ${availableDays.find(d => d.value === data.day)?.label} à ${data.time}\n` +
-      `${data.withTransfer ? 'Avec transfert' : 'Sans transfert'}\n` +
-      `Contact: ${data.phone} / ${data.email}`
-    )
+  const onSubmit = async (data: FormValues) => {
+    setIsLoading(true)
+    try {
+      console.log("Form submitted:", data)
+      // Simulate API call delay (remove this in production)
+      await new Promise(resolve => setTimeout(resolve, 1500))
+      
+      // Here you would typically send the data to your backend
+      alert(
+        `Réservation confirmée pour ${data.firstName} ${data.lastName}\n` +
+        `${data.adults} adulte(s) et ${data.children} enfant(s)\n` +
+        `Le ${availableDays.find(d => d.value === data.day)?.label} à ${data.time}\n` +
+        `${data.withTransfer ? 'Avec transfert' : 'Sans transfert'}\n` +
+        `Contact: ${data.phone} / ${data.email}`
+      )
+    } catch (error) {
+      console.error("Submission error:", error)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
 
@@ -308,7 +319,7 @@ export default function BookingForm() {
               </FormControl>
               <div className="space-y-1 leading-none">
                 <FormLabel>
-                  Ajouter le transfert (+50 MAD)
+                  Ajouter le transfert (+50 EUR)
                 </FormLabel>
                 <FormDescription>
                   Service de transport depuis votre hébergement
@@ -322,11 +333,22 @@ export default function BookingForm() {
 
         <div className="flex items-center justify-between font-semibold">
           <span>Total</span>
-          <span>{totalPrice} MAD</span>
+          <span>{totalPrice} EUR</span>
         </div>
 
-        <Button type="submit" className="w-full bg-[#0a8a8a] hover:bg-[#0a8a8a]/90">
-          Réserver maintenant
+        <Button 
+          type="submit" 
+          className="w-full bg-[#0a8a8a] hover:bg-[#0a8a8a]/90"
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Traitement...
+            </>
+          ) : (
+            "Réserver maintenant"
+          )}
         </Button>
 
         <div className="text-xs text-center text-gray-500 flex items-center justify-center gap-1">
