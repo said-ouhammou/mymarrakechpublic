@@ -1,9 +1,7 @@
-import NotFoundPage from "../notFound/NotFoundPage"
+import NotFoundPage from "../notFound/NotFoundPage";
 
 function Home() {
-  return (
-    <NotFoundPage/>
-  )
+    return <NotFoundPage />;
 }
 
-export default Home
+export default Home;

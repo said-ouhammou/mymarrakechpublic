@@ -5,9 +5,14 @@ import { FBLoading } from "@/components/custom/Loading";
 import NoListingFound from "@/pages/listings/NoListingFound";
 import { ActivityType } from "@/types";
 
+interface Category {
+    title: string;
+    subCategories: string[];
+}
+
 interface BannerProps {
-    title:string;
-    description:string;
+    title: string;
+    description: string;
     activities: ActivityType[];
     isLoading?: boolean;
     error?: string | null;
@@ -24,8 +29,11 @@ export default function Banner({
     const [filteredActivities, setFilteredActivities] = useState<
         ActivityType[]
     >([]);
-    const [categories, setCategories] = useState<string[]>([]);
-    const [activeFilter, setActiveFilter] = useState<string>("Voir tout");
+    const [categories, setCategories] = useState<Category[]>([]);
+    const [activeFilter, setActiveFilter] = useState<{
+        mainCategory: string;
+        subCategory: string | null;
+    }>({ mainCategory: "Voir tout", subCategory: null });
 
     // Cards slider navigation states
     const cardsSliderRef = useRef<HTMLDivElement>(null);
@@ -33,28 +41,44 @@ export default function Banner({
         useState<boolean>(false);
     const [canScrollCardsRight, setCanScrollCardsRight] =
         useState<boolean>(true);
+
     // Initialize filtered activities and categories when activities prop changes
     useEffect(() => {
         if (activities.length > 0) {
             setFilteredActivities(activities);
 
-            // Extract unique categories from activities
-            const uniqueCategories = Array.from(
-                new Set(
-                    activities.map(
-                        (activity: ActivityType) => activity.category_title
-                    )
-                )
-            ).filter(Boolean) as string[];
+            // Organize categories and subcategories
+            const categoriesMap = new Map<string, Set<string>>();
 
-            setCategories(uniqueCategories);
+            activities.forEach((activity: ActivityType) => {
+                if (!activity.category_title) return;
+
+                if (!categoriesMap.has(activity.category_title)) {
+                    categoriesMap.set(activity.category_title, new Set());
+                }
+
+                if (activity.sub_category_title) {
+                    categoriesMap
+                        .get(activity.category_title)
+                        ?.add(activity.sub_category_title);
+                }
+            });
+
+            const organizedCategories: Category[] = Array.from(
+                categoriesMap.entries()
+            ).map(([title, subCategoriesSet]) => ({
+                title,
+                subCategories: Array.from(subCategoriesSet),
+            }));
+
+            setCategories(organizedCategories);
         } else {
             setFilteredActivities([]);
             setCategories([]);
         }
 
         // Reset filter to "Voir tout" when activities change
-        setActiveFilter("Voir tout");
+        setActiveFilter({ mainCategory: "Voir tout", subCategory: null });
     }, [activities]);
 
     // Check scroll position for cards slider
@@ -97,18 +121,48 @@ export default function Banner({
         }
     };
 
-    // Filter activities based on selected category
-    const handleFilterChange = (filterCategory: string) => {
-        setActiveFilter(filterCategory);
+    const handleMainCategoryClick = (mainCategory: string) => {
+        setActiveFilter({ mainCategory, subCategory: null });
 
-        if (filterCategory === "Voir tout") {
+        if (mainCategory === "Voir tout") {
             setFilteredActivities(activities);
         } else {
             const filtered = activities.filter(
-                (activity) => activity.category_title === filterCategory
+                (activity) => activity.category_title === mainCategory
             );
             setFilteredActivities(filtered);
         }
+    };
+
+    const handleSubCategoryClick = (
+        mainCategory: string,
+        subCategory: string
+    ) => {
+        setActiveFilter({ mainCategory, subCategory });
+
+        const filtered = activities.filter(
+            (activity) =>
+                activity.category_title === mainCategory &&
+                activity.sub_category_title === subCategory
+        );
+        setFilteredActivities(filtered);
+    };
+
+    const getActivityCount = (mainCategory: string, subCategory?: string) => {
+        if (!mainCategory || mainCategory === "Voir tout") {
+            return activities.length;
+        }
+
+        if (subCategory) {
+            return activities.filter(
+                (a) =>
+                    a.category_title === mainCategory &&
+                    a.sub_category_title === subCategory
+            ).length;
+        }
+
+        return activities.filter((a) => a.category_title === mainCategory)
+            .length;
     };
 
     const renderContent = () => {
@@ -181,7 +235,6 @@ export default function Banner({
                     style={{
                         scrollbarWidth: "none",
                         msOverflowStyle: "none",
-                        // WebkitScrollbar: { display: "none" },
                     }}
                 >
                     {filteredActivities.map((activity) => (
@@ -197,24 +250,6 @@ export default function Banner({
                         />
                     ))}
                 </div>
-
-                {/* Fade effects for cards slider */}
-                {/* {filteredActivities.length > 3 && (
-                    <>
-                        <div
-                            className={`absolute left-0 top-0 bottom-0 w-16 bg-gradient-to-r from-white via-white/80 to-transparent pointer-events-none transition-opacity duration-200 z-10 ${
-                                canScrollCardsLeft ? "opacity-100" : "opacity-0"
-                            }`}
-                        ></div>
-                        <div
-                            className={`absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-white via-white/80 to-transparent pointer-events-none transition-opacity duration-200 z-10 ${
-                                canScrollCardsRight
-                                    ? "opacity-100"
-                                    : "opacity-0"
-                            }`}
-                        ></div>
-                    </>
-                )} */}
             </div>
         );
     };
@@ -230,14 +265,14 @@ export default function Banner({
                         {description}
                     </p>
                 </section>
-            
-                {/* Category Filter Buttons */}
-                <div className="flex flex-nowrap overflow-auto gap-3 mb-3 hide-scrollbar">
+
+                {/* Main Category Filter Buttons */}
+                <div className="flex flex-nowrap overflow-auto gap-3 mb-2 hide-scrollbar">
                     {/* "Voir tout" button */}
                     <button
-                        onClick={() => handleFilterChange("Voir tout")}
+                        onClick={() => handleMainCategoryClick("Voir tout")}
                         className={`px-4 py-2 min-w-fit border border-gray-300 rounded-full transition-colors ${
-                            activeFilter === "Voir tout"
+                            activeFilter.mainCategory === "Voir tout"
                                 ? "bg-[#f9f4f0] text-amber-900 hover:bg-amber-100"
                                 : "bg-white hover:bg-gray-50"
                         }`}
@@ -245,34 +280,65 @@ export default function Banner({
                         Voir tout ({activities.length})
                     </button>
 
-                    {/* Dynamic category buttons */}
+                    {/* Dynamic main category buttons */}
                     {categories.map((category) => (
                         <button
-                            key={category}
-                            onClick={() => handleFilterChange(category)}
+                            key={category.title}
+                            onClick={() =>
+                                handleMainCategoryClick(category.title)
+                            }
                             className={`px-4 py-2 min-w-fit border border-gray-300 rounded-full transition-colors ${
-                                activeFilter === category
+                                activeFilter.mainCategory === category.title &&
+                                !activeFilter.subCategory
                                     ? "bg-amber-50 text-amber-900 hover:bg-amber-100"
                                     : "bg-white hover:bg-gray-50"
                             }`}
                         >
-                            {category} (
-                            {
-                                activities.filter(
-                                    (a) => a.category_title === category
-                                ).length
-                            }
+                            {category.title} ({getActivityCount(category.title)}
                             )
                         </button>
                     ))}
                 </div>
 
+                {/* Subcategory filter row (only shown when a main category is selected) */}
+                {activeFilter.mainCategory !== "Voir tout" && (
+                    <div className="flex flex-nowrap overflow-auto gap-3 mb-2 hide-scrollbar">
+                        {categories
+                            .find((c) => c.title === activeFilter.mainCategory)
+                            ?.subCategories.map((subCategory) => (
+                                <button
+                                    key={subCategory}
+                                    onClick={() =>
+                                        handleSubCategoryClick(
+                                            activeFilter.mainCategory,
+                                            subCategory
+                                        )
+                                    }
+                                    className={`px-4 py-2 min-w-fit border border-gray-300 rounded-full transition-colors ${
+                                        activeFilter.subCategory === subCategory
+                                            ? "bg-amber-50 text-amber-900 hover:bg-amber-100"
+                                            : "bg-white hover:bg-gray-50"
+                                    }`}
+                                >
+                                    {subCategory} (
+                                    {getActivityCount(
+                                        activeFilter.mainCategory,
+                                        subCategory
+                                    )}
+                                    )
+                                </button>
+                            ))}
+                    </div>
+                )}
+
                 {/* Display current filter info */}
                 <div className="mb-2">
                     <p className="text-sm text-gray-600">
-                        {activeFilter === "Voir tout"
+                        {activeFilter.mainCategory === "Voir tout"
                             ? `Affichage de ${filteredActivities.length} activités`
-                            : `Affichage de ${filteredActivities.length} activités dans "${activeFilter}"`}
+                            : activeFilter.subCategory
+                            ? `Affichage de ${filteredActivities.length} activités dans "${activeFilter.mainCategory} > ${activeFilter.subCategory}"`
+                            : `Affichage de ${filteredActivities.length} activités dans "${activeFilter.mainCategory}"`}
                     </p>
                 </div>
             </div>

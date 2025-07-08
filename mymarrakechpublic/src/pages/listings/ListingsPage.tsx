@@ -4,16 +4,21 @@ import Listing from "../../components/custom/listings/Listing";
 import { FBLoading } from "@/components/custom/Loading";
 import NoListingFound from "./NoListingFound";
 import axiosInstance from "@/axios/axiosInstance";
-import { ActivityType , SupplierType, BannerMetaData} from "@/types";
+import { ActivityType, SupplierType, BannerMetaData } from "@/types";
 import Banner from "@/components/banner/Banner";
+
+interface Category {
+    title: string;
+    subCategories: string[];
+}
 
 export default function ListingsPage() {
     const { slug } = useParams<{ slug: string }>();
     const [activities, setActivities] = useState<ActivityType[]>([]);
     const [supplier, setSupplier] = useState<SupplierType | null>(null);
     const [bannerMetaData, setBannerMetaData] = useState<BannerMetaData>({
-        title:'',
-        description:'',
+        title: "",
+        description: "",
     });
     const [bannerActivities, setBannerActivities] = useState<ActivityType[]>(
         []
@@ -21,8 +26,11 @@ export default function ListingsPage() {
     const [filteredActivities, setFilteredActivities] = useState<
         ActivityType[]
     >([]);
-    const [categories, setCategories] = useState<string[]>([]);
-    const [activeFilter, setActiveFilter] = useState<string>("Voir tout");
+    const [categories, setCategories] = useState<Category[]>([]);
+    const [activeFilter, setActiveFilter] = useState<{
+        mainCategory: string;
+        subCategory: string | null;
+    }>({ mainCategory: "Voir tout", subCategory: null });
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -43,19 +51,36 @@ export default function ListingsPage() {
                     setSupplier(response.data.supplier || null);
                     setBannerActivities(bannerActivitiesData);
                     setFilteredActivities(activitiesData);
-                    setBannerMetaData(()=>response.data.bannerMetaData);
+                    setBannerMetaData(() => response.data.bannerMetaData);
 
-                    // Extract unique categories from activities
-                    const uniqueCategories = Array.from(
-                        new Set(
-                            activitiesData.map(
-                                (activity: ActivityType) =>
-                                    activity.category_title
-                            )
-                        )
-                    ).filter(Boolean) as string[];
+                    // Organize categories and subcategories
+                    const categoriesMap = new Map<string, Set<string>>();
 
-                    setCategories(uniqueCategories);
+                    activitiesData.forEach((activity: ActivityType) => {
+                        if (!activity.category_title) return;
+
+                        if (!categoriesMap.has(activity.category_title)) {
+                            categoriesMap.set(
+                                activity.category_title,
+                                new Set()
+                            );
+                        }
+
+                        if (activity.sub_category_title) {
+                            categoriesMap
+                                .get(activity.category_title)
+                                ?.add(activity.sub_category_title);
+                        }
+                    });
+
+                    const organizedCategories: Category[] = Array.from(
+                        categoriesMap.entries()
+                    ).map(([title, subCategoriesSet]) => ({
+                        title,
+                        subCategories: Array.from(subCategoriesSet),
+                    }));
+
+                    setCategories(organizedCategories);
                 } else {
                     setError("Aucune donnée trouvée");
                 }
@@ -72,18 +97,31 @@ export default function ListingsPage() {
         fetchActivities();
     }, [slug]);
 
-    // Filter activities based on selected category
-    const handleFilterChange = (filterCategory: string) => {
-        setActiveFilter(filterCategory);
+    const handleMainCategoryClick = (mainCategory: string) => {
+        setActiveFilter({ mainCategory, subCategory: null });
 
-        if (filterCategory === "Voir tout") {
+        if (mainCategory === "Voir tout") {
             setFilteredActivities(activities);
         } else {
             const filtered = activities.filter(
-                (activity) => activity.category_title === filterCategory
+                (activity) => activity.category_title === mainCategory
             );
             setFilteredActivities(filtered);
         }
+    };
+
+    const handleSubCategoryClick = (
+        mainCategory: string,
+        subCategory: string
+    ) => {
+        setActiveFilter({ mainCategory, subCategory });
+
+        const filtered = activities.filter(
+            (activity) =>
+                activity.category_title === mainCategory &&
+                activity.sub_category_title === subCategory
+        );
+        setFilteredActivities(filtered);
     };
 
     const renderContent = () => {
@@ -112,13 +150,30 @@ export default function ListingsPage() {
         );
     };
 
+    const getActivityCount = (mainCategory: string, subCategory?: string) => {
+        if (!mainCategory || mainCategory === "Voir tout") {
+            return activities.length;
+        }
+
+        if (subCategory) {
+            return activities.filter(
+                (a) =>
+                    a.category_title === mainCategory &&
+                    a.sub_category_title === subCategory
+            ).length;
+        }
+
+        return activities.filter((a) => a.category_title === mainCategory)
+            .length;
+    };
+
     return (
         <div className="max-w-7xl mx-auto px-4 py-8">
             <section className="mb-12 max-w-5xl px-4">
                 {supplier && (
                     <h1 className="text-2xl tracking-tight font-semibold text-gray-800 my-4">
-                    Partenaire de {supplier.company}
-                </h1>
+                        Partenaire de {supplier.company}
+                    </h1>
                 )}
                 <p className="text-gray-700 text-md tracking-tight">
                     Ce partenaire collabore avec l'agence My Marrakech.
@@ -143,9 +198,9 @@ export default function ListingsPage() {
                 <div className="flex flex-nowrap overflow-auto gap-3 mb-2 hide-scrollbar">
                     {/* "Voir tout" button */}
                     <button
-                        onClick={() => handleFilterChange("Voir tout")}
+                        onClick={() => handleMainCategoryClick("Voir tout")}
                         className={`px-4 py-2 min-w-fit border border-gray-300 rounded-full transition-colors ${
-                            activeFilter === "Voir tout"
+                            activeFilter.mainCategory === "Voir tout"
                                 ? "bg-[#f9f4f0] text-amber-900 hover:bg-amber-100"
                                 : "bg-white hover:bg-gray-50"
                         }`}
@@ -153,34 +208,65 @@ export default function ListingsPage() {
                         Voir tout ({activities.length})
                     </button>
 
-                    {/* Dynamic category buttons */}
+                    {/* Main category buttons */}
                     {categories.map((category) => (
                         <button
-                            key={category}
-                            onClick={() => handleFilterChange(category)}
+                            key={category.title}
+                            onClick={() =>
+                                handleMainCategoryClick(category.title)
+                            }
                             className={`px-4 py-2 min-w-fit border border-gray-300 rounded-full transition-colors ${
-                                activeFilter === category
+                                activeFilter.mainCategory === category.title &&
+                                !activeFilter.subCategory
                                     ? "bg-amber-50 text-amber-900 hover:bg-amber-100"
                                     : "bg-white hover:bg-gray-50"
                             }`}
                         >
-                            {category} (
-                            {
-                                activities.filter(
-                                    (a) => a.category_title === category
-                                ).length
-                            }
+                            {category.title} ({getActivityCount(category.title)}
                             )
                         </button>
                     ))}
                 </div>
 
+                {/* Subcategory filter row (only shown when a main category is selected) */}
+                {activeFilter.mainCategory !== "Voir tout" && (
+                    <div className="flex flex-nowrap overflow-auto gap-3 mb-2 hide-scrollbar">
+                        {categories
+                            .find((c) => c.title === activeFilter.mainCategory)
+                            ?.subCategories.map((subCategory) => (
+                                <button
+                                    key={subCategory}
+                                    onClick={() =>
+                                        handleSubCategoryClick(
+                                            activeFilter.mainCategory,
+                                            subCategory
+                                        )
+                                    }
+                                    className={`px-4 py-2 min-w-fit border border-gray-300 rounded-full transition-colors ${
+                                        activeFilter.subCategory === subCategory
+                                            ? "bg-amber-50 text-amber-900 hover:bg-amber-100"
+                                            : "bg-white hover:bg-gray-50"
+                                    }`}
+                                >
+                                    {subCategory} (
+                                    {getActivityCount(
+                                        activeFilter.mainCategory,
+                                        subCategory
+                                    )}
+                                    )
+                                </button>
+                            ))}
+                    </div>
+                )}
+
                 {/* Display current filter info */}
                 <div className="mb-4">
                     <p className="text-sm text-gray-600">
-                        {activeFilter === "Voir tout"
+                        {activeFilter.mainCategory === "Voir tout"
                             ? `Affichage de ${filteredActivities.length} activités`
-                            : `Affichage de ${filteredActivities.length} activités dans "${activeFilter}"`}
+                            : activeFilter.subCategory
+                            ? `Affichage de ${filteredActivities.length} activités dans "${activeFilter.mainCategory} > ${activeFilter.subCategory}"`
+                            : `Affichage de ${filteredActivities.length} activités dans "${activeFilter.mainCategory}"`}
                     </p>
                 </div>
             </div>

@@ -5,18 +5,18 @@ export type ScheduleType = {
     days: string;
     start_time: string;
     end_time: string;
-  };
-  
-  // Type for price information
-  export type PriceType = {
+};
+
+// Type for price information
+export type PriceType = {
     id: number;
     activity_id: number;
-    person: string; 
+    person: string;
     price: number;
-  };
-  
-  // Type for the activity object
-  export type ActivityType = {
+};
+
+// Type for the activity object
+export type ActivityType = {
     id: number;
     supplier_id: number;
     category_id: number;
@@ -28,12 +28,14 @@ export type ScheduleType = {
     payment_methods: string;
     localisation: string;
     category_title: string;
+    sub_category_title: string;
+    sub_category_description: string;
     schedules: ScheduleType[];
     prices: PriceType[];
-  };
-  
-  // Type for the page object
-  export type PageType = {
+};
+
+// Type for the page object
+export type PageType = {
     id: number;
     supplier_id: number;
     user_id: number;
@@ -50,21 +52,20 @@ export type ScheduleType = {
     observation: string | null;
     created_at: string;
     updated_at: string;
-  };
-  
-  // Type for the root object
-  export type RootType = {
+};
+
+// Type for the root object
+export type RootType = {
     page: PageType;
     activity: ActivityType;
-  };
-  
-  export type BannerMetaData = {
-    title:string;
-    description:string
-  }
+};
 
-  export type SupplierType = {
+export type BannerMetaData = {
+    title: string;
+    description: string;
+};
+
+export type SupplierType = {
     id: number;
     company: string;
-  };
-  
+};

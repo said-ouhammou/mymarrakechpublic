@@ -65,6 +65,7 @@ class SupplierPublicPageController extends Controller
                 ->table('supplier_page_activities as spa')
                 ->join('activities as a', 'spa.activity_id', '=', 'a.id')
                 ->join('categories as c', 'a.category_id', '=', 'c.id')
+                ->join('global_categories as gc', 'c.global_category_id', '=', 'gc.id')
                 ->where('spa.page_id', $page->id)
                 ->where('spa.is_visible', 1)
                 ->select([
@@ -85,8 +86,11 @@ class SupplierPublicPageController extends Controller
                     'spa.discount_type',
                     'spa.display_order',
                     'spa.is_featured',
-                    'c.title as category_title',
-                    'c.description as category_description',
+                    'gc.title as category_title',
+                    'gc.description as category_description',
+                    'gc.icon as category_icon',
+                    'c.title as sub_category_title',
+                    'c.description as sub_category_description',
                 ])
                 ->orderBy('spa.display_order')
                 ->get();
@@ -98,6 +102,7 @@ class SupplierPublicPageController extends Controller
                 ->table('banner_activities as ba')
                 ->join('activities as a', 'ba.activity_id', '=', 'a.id')
                 ->join('categories as c', 'a.category_id', '=', 'c.id')
+                ->join('global_categories as gc', 'c.global_category_id', '=', 'gc.id')
                 ->join('banners as b', 'b.id', '=', 'ba.banner_id')
                 ->where('b.is_active', 1)
                 ->whereNotIn('a.id', $activityIds)
@@ -110,7 +115,7 @@ class SupplierPublicPageController extends Controller
                     'a.payment_methods',
                     'a.localisation',
                     'a.image_path as image',
-                    DB::raw('NULL as image_path'), // No spa data
+                    DB::raw('NULL as image_path'),
                     DB::raw('NULL as rating'),
                     DB::raw('NULL as person'),
                     DB::raw('NULL as persons_number'),
@@ -119,8 +124,11 @@ class SupplierPublicPageController extends Controller
                     DB::raw('NULL as discount_type'),
                     DB::raw('NULL as display_order'),
                     DB::raw('NULL as is_featured'),
-                    'c.title as category_title',
-                    'c.description as category_description',
+                    'gc.title as category_title',
+                    'gc.description as category_description',
+                    'gc.icon as category_icon',
+                    'c.title as sub_category_title',
+                    'c.description as sub_category_description',
                 ])
                 ->get();
 
